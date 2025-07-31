@@ -74,13 +74,19 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
     // Only update if the date actually changed
     if (newDate !== originalDate) {
       try {
-        const token = localStorage.getItem('token');
-        const updatedShift = {
-          ...draggedShift,
+        const token = JSON.parse(localStorage.getItem('authToken'));
+        const payload = {
+          title: draggedShift.title,
+          role: draggedShift.role,
+          typeOfShift: draggedShift.typeOfShift,
+          startTime: draggedShift.startTime,
+          finishTime: draggedShift.finishTime,
+          numOfShiftsPerDay: draggedShift.numOfShiftsPerDay,
+          location: typeof draggedShift.location === 'string' ? draggedShift.location : draggedShift.location?._id || '',
           date: newDate
         };
         
-        await axios.put(`/shifts/${draggedShift._id}`, updatedShift, {
+        await axios.put(`/shifts/${draggedShift._id}`, payload, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
