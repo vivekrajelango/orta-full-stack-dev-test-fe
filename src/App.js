@@ -11,7 +11,10 @@ import Register from "./components/Register";
 import ForgotPassword from "./components/forgotPassword/ForgotPassword";
 import ResetPassword from "./components/forgotPassword/ResetPassword";
 import axios from "./Axios/axios.js";
-import Shifts from "./components/Shifts/Shifts";
+import Dashboard from "./components/Dashboard/Dashboard";
+import CreateShift from "./components/CreateShift/CreateShift";
+import ShiftDetails from "./components/ShiftDetails/ShiftDetails";
+import EditShift from "./components/EditShift/EditShift";
 
 function App() {
   const storedToken = JSON.parse(localStorage.getItem("authToken"));
@@ -42,9 +45,21 @@ function App() {
           <Route path="/" element={<Header />}>
             <Route
               index
-              element={userToken ? <Shifts /> : <Navigate to="/login" />}
+              element={userToken ? <Dashboard /> : <Navigate to="/login" />}
             />
             <Route path="shifts" element={<Navigate to="/" replace />} />
+            <Route
+              path="create-shift"
+              element={userToken ? <CreateShift /> : <Navigate to="/login" />}
+            />
+            <Route
+              path="shift/:id"
+              element={userToken ? <ShiftDetails /> : <Navigate to="/login" />}
+            />
+            <Route
+              path="edit-shift/:id"
+              element={userToken ? <EditShift /> : <Navigate to="/login" />}
+            />
             <Route
               path="login"
               element={userToken ? <Navigate to="/" /> : <Login />}
