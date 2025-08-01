@@ -163,7 +163,7 @@ export default function Dashboard() {
 
         {/* Content Section */}
         {viewMode === 'calendar' ? (
-          <CalendarView shifts={shifts} onShiftUpdate={handleShiftUpdate} />
+          <CalendarView shifts={shifts} onShiftUpdate={handleShiftUpdate} user={user} userToken={userToken} />
         ) : (
           /* Table View */
           <div className="bg-white rounded-lg shadow-sm">

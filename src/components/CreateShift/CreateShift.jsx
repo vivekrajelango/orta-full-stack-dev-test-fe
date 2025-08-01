@@ -11,11 +11,9 @@ export default function CreateShift() {
     date: '',
     startTime: '',
     finishTime: '',
-    location: {
-      name: '',
-      address: '',
-      postCode: ''
-    }
+    location:'6887c3aa85079f3dd97694e4',
+    role:'',
+    numOfShiftsPerDay: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -26,10 +24,6 @@ export default function CreateShift() {
       const locationField = name.split('.')[1];
       setFormData(prev => ({
         ...prev,
-        location: {
-          ...prev.location,
-          [locationField]: value
-        }
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -40,17 +34,29 @@ export default function CreateShift() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
+      
+      // const formData = {
+      //   "title": "Morning Shift123",
+      //   "role": "Support Worker",
+      //   "user": "6887c986d5e53fa725e2356d",
+      //   "startTime": "09:00",
+      //   "finishTime": "17:00",
+      //   "location": "6887c3aa85079f3dd97694e4",
+      //   "date": "2025-01-15"
+      // }
+      console.log('formData', formData);
+      console.log('user', user._id);
     try {
       await axios.post('/shifts', {
         ...formData,
-        userId: user._id
+        user: user._id
       }, {
         headers: {
           Authorization: `Bearer ${userToken}`
         }
       });
       navigate('/');
+
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || err.message || 'Failed to create shift');
@@ -88,6 +94,38 @@ export default function CreateShift() {
                 placeholder="e.g., Morning Shift, Evening Shift"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+                Role
+              </label>
+              <input
+                type="text"
+                id="role"
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                placeholder="Senior Support Worker"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="numOfShiftsPerDay" className="block text-sm font-medium text-gray-700 mb-2">
+                Number of Shifts Per Day
+              </label>
+              <input
+                type="number"
+                id="numOfShiftsPerDay"
+                name="numOfShiftsPerDay"
+                placeholder="1 or 2"
+                value={formData.numOfShiftsPerDay}
+                onChange={handleChange}
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 

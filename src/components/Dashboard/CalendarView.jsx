@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from '../../Axios/axios';
 
-const CalendarView = ({ shifts, onShiftUpdate }) => {
+const CalendarView = ({ shifts, onShiftUpdate, user, userToken }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [draggedShift, setDraggedShift] = useState(null);
   const [dragOverDate, setDragOverDate] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isCopyMode, setIsCopyMode] = useState(false);
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -23,6 +25,29 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
   const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
   const firstDayWeekday = firstDayOfMonth.getDay();
   const daysInMonth = lastDayOfMonth.getDate();
+  
+  // Keyboard event handlers for Ctrl key detection
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        setIsCtrlPressed(true);
+      }
+    };
+    
+    const handleKeyUp = (e) => {
+      if (!e.ctrlKey && !e.metaKey) {
+        setIsCtrlPressed(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
   
   // Navigate to previous/next month
   const navigateMonth = (direction) => {
@@ -42,16 +67,73 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
   
   // Handle drag start
   const handleDragStart = (e, shift) => {
+    const ctrlPressed = e.ctrlKey || e.metaKey;
+    console.log('Drag start triggered:', {
+      shiftId: shift._id,
+      ctrlPressed,
+      currentCopyMode: isCopyMode,
+      finalCopyMode: ctrlPressed || isCopyMode
+    });
     setDraggedShift(shift);
     setIsDragging(true);
-    e.dataTransfer.effectAllowed = 'move';
+    // Use existing copy mode or ctrl key
+    const finalCopyMode = ctrlPressed || isCopyMode;
+    setIsCopyMode(finalCopyMode);
+    e.dataTransfer.effectAllowed = finalCopyMode ? 'copy' : 'move';
     e.dataTransfer.setData('text/html', e.target.outerHTML);
+  };
+  
+  // Create a copy of a shift
+  const createShiftCopy = async (originalShift, newDate) => {
+    try {
+      console.log('Creating shift copy with:', {
+        originalShift,
+        newDate,
+        userToken: userToken ? 'present' : 'missing',
+        user: user ? 'present' : 'missing',
+        userId: user?._id
+      });
+      
+      const payload = {
+        title: originalShift.title || 'Copied Shift',
+        role: originalShift.role || 'Support Worker',
+        typeOfShift: originalShift.typeOfShift || ['Weekdays'],
+        startTime: originalShift.startTime,
+        finishTime: originalShift.finishTime,
+        numOfShiftsPerDay: originalShift.numOfShiftsPerDay || 1,
+        location: typeof originalShift.location === 'string' 
+          ? originalShift.location 
+          : originalShift.location?._id || '',
+        date: newDate,
+        user: user?._id
+      };
+      
+      console.log('Payload being sent:', payload);
+      
+      const response = await axios.post('/shifts', payload, {
+        headers: {
+          'Authorization': `Bearer ${userToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Shift copy created successfully:', response.data);
+      
+      // Call parent component to refresh shifts
+      if (onShiftUpdate) {
+        onShiftUpdate();
+      }
+    } catch (error) {
+      console.error('Error creating shift copy:', error);
+      console.error('Error details:', error.response?.data);
+      alert(`Failed to create shift copy: ${error.response?.data?.message || error.message}`);
+    }
   };
   
   // Handle drag over
   const handleDragOver = (e, day) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = isCopyMode ? 'copy' : 'move';
     setDragOverDate(day);
   };
   
@@ -66,15 +148,39 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
     setDragOverDate(null);
     setIsDragging(false);
     
-    if (!draggedShift) return;
+    console.log('Drop event triggered:', {
+      day,
+      draggedShift: draggedShift ? 'present' : 'missing',
+      isCopyMode,
+      isCtrlPressed
+    });
+    
+    if (!draggedShift) {
+      console.log('No dragged shift, returning');
+      return;
+    }
     
     const newDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const originalDate = new Date(draggedShift.date).toISOString().split('T')[0];
     
-    // Only update if the date actually changed
-    if (newDate !== originalDate) {
+    console.log('Date comparison:', { newDate, originalDate, isSameDate: newDate === originalDate });
+    
+    console.log('Before conditional check:', {
+      isCopyMode,
+      isCtrlPressed,
+      draggedShiftId: draggedShift._id,
+      copyModeType: typeof isCopyMode
+    });
+    
+    // Handle copy mode or move mode
+    if (isCopyMode) {
+      console.log('Copy mode detected, calling createShiftCopy');
+      // Copy mode: create a new shift
+      await createShiftCopy(draggedShift, newDate);
+    } else if (newDate !== originalDate) {
+      console.log('Move mode detected, updating shift');
+      // Move mode: only update if the date actually changed
       try {
-        const token = JSON.parse(localStorage.getItem('authToken'));
         const payload = {
           title: draggedShift.title,
           role: draggedShift.role,
@@ -88,7 +194,7 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
         
         await axios.put(`/shifts/${draggedShift._id}`, payload, {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${userToken}`,
             'Content-Type': 'application/json'
           }
         });
@@ -108,9 +214,12 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
   
   // Handle drag end
   const handleDragEnd = () => {
+    console.log('Drag end triggered, resetting states');
     setDraggedShift(null);
     setDragOverDate(null);
     setIsDragging(false);
+    // Don't reset copy mode here if it was set by copy button
+    // setIsCopyMode(false);
   };
   
   // Format time for display
@@ -169,37 +278,59 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
               return (
                 <div
                   key={shift._id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, shift)}
-                  onDragEnd={handleDragEnd}
-                  className={`block text-xs p-1 rounded text-left transition-all cursor-move ${
+                  className={`relative group block text-xs p-1 rounded text-left transition-all ${
                     isSelected 
                       ? 'bg-green-100 border border-green-300 text-green-800 hover:bg-green-200'
                       : 'bg-blue-100 border border-blue-300 text-blue-800 hover:bg-blue-200'
-                  } ${isBeingDragged ? 'opacity-50 transform scale-95' : ''} ${isDragging && !isBeingDragged ? 'pointer-events-none' : ''}`}
+                  } ${isBeingDragged ? 'opacity-50 transform scale-95' : ''} ${isDragging && !isBeingDragged ? 'pointer-events-none' : ''} ${isCopyMode && isBeingDragged ? 'ring-2 ring-orange-400 ring-opacity-75' : ''}`}
                 >
-                  <Link
-                    to={`/shift/${shift._id}`}
-                    className="block"
-                    onClick={(e) => {
-                      if (isDragging) {
-                        e.preventDefault();
-                      }
-                    }}
+                  <div
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, shift)}
+                    onDragEnd={handleDragEnd}
+                    className="cursor-move"
                   >
-                    <div className="font-medium truncate">
-                      {formatTime(shift.startTime)} {shift.title || 'Morning Shift'}
-                    </div>
-                    {shift.location?.name && (
-                      <div className="text-xs opacity-75 truncate">
-                        {shift.location.name}
+                    <Link
+                      to={`/shift/${shift._id}`}
+                      className="block"
+                      onClick={(e) => {
+                        if (isDragging) {
+                          e.preventDefault();
+                        }
+                      }}
+                    >
+                      <div className="font-medium truncate">
+                        {formatTime(shift.startTime)} {shift.title || 'Morning Shift'}
                       </div>
-                    )}
-                  </Link>
-                  <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                    </svg>
+                      {shift.location?.name && (
+                        <div className="text-xs opacity-75 truncate">
+                          {shift.location.name}
+                        </div>
+                      )}
+                    </Link>
+                  </div>
+                  <div className="absolute top-0 right-0 flex space-x-1 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Copy button clicked for shift:', shift._id);
+                        setIsCopyMode(true);
+                        setDraggedShift(shift);
+                        console.log('Copy mode set to true, draggedShift set');
+                      }}
+                      className="p-0.5 hover:bg-white hover:bg-opacity-50 rounded transition-colors"
+                      title="Copy shift (or hold Ctrl while dragging)"
+                    >
+                      <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <div className="p-0.5">
+                      <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
               );
@@ -214,6 +345,33 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
   
   return (
     <div className="bg-white rounded-lg shadow-sm">
+      {/* Copy Mode Indicator */}
+      {(isCopyMode || isCtrlPressed) && (
+        <div className="px-6 py-2 bg-orange-50 border-b border-orange-200 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-medium text-orange-800">
+              Copy Mode Active - Drop shift on any date to create a duplicate
+            </span>
+          </div>
+          {isCopyMode && (
+            <button
+              onClick={() => {
+                setIsCopyMode(false);
+                setDraggedShift(null);
+              }}
+              className="text-orange-600 hover:text-orange-800 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+      
       {/* Calendar Header */}
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">
@@ -241,6 +399,14 @@ const CalendarView = ({ shifts, onShiftUpdate }) => {
       
       {/* Calendar Grid */}
       <div className="p-6">
+        {/* Instructions */}
+        <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+          <p className="text-xs text-gray-600">
+            <strong>Drag & Drop:</strong> Move shifts between dates • 
+            <strong>Copy:</strong> Hold Ctrl/Cmd while dragging or click the copy icon to duplicate shifts
+          </p>
+        </div>
+        
         {/* Day Headers */}
         <div className="grid grid-cols-7 gap-0 mb-2">
           {dayNames.map(day => (
