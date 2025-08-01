@@ -128,7 +128,7 @@ export default function EditShift() {
           Authorization: `Bearer ${userToken}`
         }
       });
-      navigate(`/shift/${id}`);
+      navigate(`/`);
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || err.message || 'Failed to update shift');

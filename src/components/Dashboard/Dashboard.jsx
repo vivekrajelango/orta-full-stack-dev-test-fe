@@ -10,6 +10,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('table'); // 'calendar' or 'table'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'Scheduled', 'In Progress', 'Completed'
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchShifts = useCallback(async () => {
     setLoading(true);
@@ -102,6 +104,34 @@ export default function Dashboard() {
     }
   };
 
+  const handleStatusFilter = () => {
+    const statusOrder = ['all', 'Scheduled', 'In Progress', 'Completed'];
+    const currentIndex = statusOrder.indexOf(statusFilter);
+    const nextIndex = (currentIndex + 1) % statusOrder.length;
+    setStatusFilter(statusOrder[nextIndex]);
+  };
+
+  const getFilteredShifts = () => {
+    let filteredShifts = shifts;
+    
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filteredShifts = filteredShifts.filter(shift => getShiftStatus(shift) === statusFilter);
+    }
+    
+    // Filter by search query (shift name or status)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filteredShifts = filteredShifts.filter(shift => {
+        const shiftTitle = (shift.title || 'Morning Shift').toLowerCase();
+        const shiftStatus = getShiftStatus(shift).toLowerCase();
+        return shiftTitle.includes(query) || shiftStatus.includes(query);
+      });
+    }
+    
+    return filteredShifts;
+  };
+
 
 
   if (loading) {
@@ -140,16 +170,6 @@ export default function Dashboard() {
         {/* View Toggle */}
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6 w-fit">
           <button
-            onClick={() => setViewMode('calendar')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'calendar'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Calendar View
-          </button>
-          <button
             onClick={() => setViewMode('table')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               viewMode === 'table'
@@ -158,6 +178,16 @@ export default function Dashboard() {
             }`}
           >
             Table View
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              viewMode === 'calendar'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Calendar View
           </button>
         </div>
 
@@ -168,8 +198,42 @@ export default function Dashboard() {
           /* Table View */
           <div className="bg-white rounded-lg shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Upcoming Shifts</h2>
-              <p className="text-sm text-gray-600 mt-1">Your scheduled shifts in chronological order</p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Upcoming Shifts</h2>
+                  <p className="text-sm text-gray-600 mt-1">Your scheduled shifts in chronological order</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="block w-64 pl-10 pr-3 p-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                  </div>
+                  {(searchQuery.trim() || statusFilter !== 'all') && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setStatusFilter('all');
+                      }}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Clear all filters"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {shifts.length === 0 ? (
@@ -197,7 +261,18 @@ export default function Dashboard() {
                         Location
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
+                        <button 
+                          onClick={handleStatusFilter}
+                          className="flex items-center space-x-1 hover:text-gray-700 transition-colors group"
+                        >
+                          <span>Status</span>
+                          {statusFilter !== 'all' && (
+                            <span className="text-blue-600 text-xs font-semibold">({statusFilter})</span>
+                          )}
+                          <svg className="w-3 h-3 text-gray-400 group-hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                          </svg>
+                        </button>
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -205,7 +280,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {shifts.map((shift) => {
+                    {getFilteredShifts().map((shift) => {
                       const status = getShiftStatus(shift);
                       return (
                         <tr key={shift._id} className="hover:bg-gray-50">
