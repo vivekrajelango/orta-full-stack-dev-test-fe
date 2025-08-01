@@ -21,7 +21,6 @@ export default function CreateShift() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name.startsWith('location.')) {
-      const locationField = name.split('.')[1];
       setFormData(prev => ({
         ...prev,
       }));
