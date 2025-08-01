@@ -402,8 +402,8 @@ const CalendarView = ({ shifts, onShiftUpdate, user, userToken }) => {
         {/* Instructions */}
         <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
           <p className="text-xs text-gray-600">
-            <strong>Drag & Drop:</strong> Move shifts between dates • 
-            <strong>Copy:</strong> Hold Ctrl/Cmd while dragging or click the copy icon to duplicate shifts
+            <strong>Drag & Drop:</strong> Move shifts between dates<br/>
+            <strong>Copy:</strong> click the copy icon to duplicate shifts
           </p>
         </div>
         
