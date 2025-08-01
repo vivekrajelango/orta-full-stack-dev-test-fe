@@ -68,12 +68,6 @@ const CalendarView = ({ shifts, onShiftUpdate, user, userToken }) => {
   // Handle drag start
   const handleDragStart = (e, shift) => {
     const ctrlPressed = e.ctrlKey || e.metaKey;
-    console.log('Drag start triggered:', {
-      shiftId: shift._id,
-      ctrlPressed,
-      currentCopyMode: isCopyMode,
-      finalCopyMode: ctrlPressed || isCopyMode
-    });
     setDraggedShift(shift);
     setIsDragging(true);
     // Use existing copy mode or ctrl key
@@ -86,13 +80,6 @@ const CalendarView = ({ shifts, onShiftUpdate, user, userToken }) => {
   // Create a copy of a shift
   const createShiftCopy = async (originalShift, newDate) => {
     try {
-      console.log('Creating shift copy with:', {
-        originalShift,
-        newDate,
-        userToken: userToken ? 'present' : 'missing',
-        user: user ? 'present' : 'missing',
-        userId: user?._id
-      });
       
       const payload = {
         title: originalShift.title || 'Copied Shift',
@@ -108,8 +95,6 @@ const CalendarView = ({ shifts, onShiftUpdate, user, userToken }) => {
         user: user?._id
       };
       
-      console.log('Payload being sent:', payload);
-      
       const response = await axios.post('/shifts', payload, {
         headers: {
           'Authorization': `Bearer ${userToken}`,
@@ -117,9 +102,6 @@ const CalendarView = ({ shifts, onShiftUpdate, user, userToken }) => {
         }
       });
       
-      console.log('Shift copy created successfully:', response.data);
-      
-      // Call parent component to refresh shifts
       if (onShiftUpdate) {
         onShiftUpdate();
       }
@@ -148,38 +130,19 @@ const CalendarView = ({ shifts, onShiftUpdate, user, userToken }) => {
     setDragOverDate(null);
     setIsDragging(false);
     
-    console.log('Drop event triggered:', {
-      day,
-      draggedShift: draggedShift ? 'present' : 'missing',
-      isCopyMode,
-      isCtrlPressed
-    });
     
     if (!draggedShift) {
-      console.log('No dragged shift, returning');
       return;
     }
     
     const newDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const originalDate = new Date(draggedShift.date).toISOString().split('T')[0];
     
-    console.log('Date comparison:', { newDate, originalDate, isSameDate: newDate === originalDate });
-    
-    console.log('Before conditional check:', {
-      isCopyMode,
-      isCtrlPressed,
-      draggedShiftId: draggedShift._id,
-      copyModeType: typeof isCopyMode
-    });
     
     // Handle copy mode or move mode
     if (isCopyMode) {
-      console.log('Copy mode detected, calling createShiftCopy');
-      // Copy mode: create a new shift
       await createShiftCopy(draggedShift, newDate);
     } else if (newDate !== originalDate) {
-      console.log('Move mode detected, updating shift');
-      // Move mode: only update if the date actually changed
       try {
         const payload = {
           title: draggedShift.title,
@@ -214,12 +177,9 @@ const CalendarView = ({ shifts, onShiftUpdate, user, userToken }) => {
   
   // Handle drag end
   const handleDragEnd = () => {
-    console.log('Drag end triggered, resetting states');
     setDraggedShift(null);
     setDragOverDate(null);
     setIsDragging(false);
-    // Don't reset copy mode here if it was set by copy button
-    // setIsCopyMode(false);
   };
   
   // Format time for display
